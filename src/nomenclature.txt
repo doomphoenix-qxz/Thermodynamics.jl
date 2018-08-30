@@ -1,0 +1,43 @@
+Here I will be adopting a fairly well-agreed on nomenclature for chemical thermodynamics and transport properties
+
+Thermodynamics                                                   Units are here. If nothing, it's dimensionless.
+  ρ  is molar density                                            mol/m^3
+  V  is specific volume; ie the inverse of ρ                     m^3/mol
+  ρm and Vm are mass denisty and specific volume respectively    kg/m^3, m^3/kg
+  Vt is total system volume should I need that                   m^3
+  P  is pressure                                                 Pa
+  (Note: pressure is often p in major thermo textbooks, but that looks similar to ρ, so I capitalized it)
+  T  is temperature                                              K
+  S  is specific entropy                                         J/kg*K
+  U  is specific internal energy                                 J/mol
+  H  is specific enthalpy                                        J/mol 
+  A  is specific Helmholtz energy                                J/mol
+  G  is specific Gibbs Energy                                    J/mol
+  Cp is constant-pressure heat capacity                          J/mol*K
+  Cv is constant-volume heat capacity                            J/mol*K
+  R  is the ideal gas constant (= 8.31446 J/mol*K)               J/mol*K
+
+Chemical Thermodynamics
+  xᵢ is mole fraction 
+  ωᵢ is mass fraction
+  f  is fugacity                                                 Pa
+  a  is activity
+  ϕ  is fugacity coefficient (= fᵢ/Pᵢ)
+  γ  is activity coefficient (= aᵢ/xᵢ)
+
+Additional nomenclature from IAPWS and similar multiparameter equations of state
+  φ  is dimensionless Helmholtz energy (= A/RT)
+  δ  is dimensionless density (= ρ/ρc)
+  τ  is inverse reduced temperature (= Tc/T)
+
+Transport properties
+  λ  is thermal conductivity.                                    W/m*K
+  Note: k is sometimes used for this, but most scientific papers use λ
+  μ  is dynamic viscosity                                        Pa*s
+  ν  is kinematic viscosity (= μ/ρm) (This is Greek nu, not v)   m2/s
+  α  is thermal diffusivity (= k/ρ*Cp)                           m2/s
+  Pr is Prandtl number (= k*μ/Cp)         
+  
+Chemical Properties
+  MW is molar mass/molecular weight                              kg/mol
+  ρc, Pc, and Tc are critical density, pressure, and temperature respectively
