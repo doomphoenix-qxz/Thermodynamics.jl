@@ -1,0 +1,19 @@
+using Thermodynamics
+
+# export the following functions:
+# phasestate() allows initialization of a substance with any equation of state backend that we have data for
+# spec_state!(kwargs...) allows you to specify the state using any two properties (or more as required by Gibbs Phase Rule) 
+# mixture() allows initialization of a mixture with any substances and mixing rules that we have data for
+# thermocalc!(::PhaseState, ::Property) calculates the required property at the specified conditions and updates the PhaseState object with its value
+# thermocalc!(::Mixture, Vector{PhaseState}, ::Property) calculates the required property at the specified conditions and updates the PhaseState objects with its value
+# mix()
+
+eth = phasestate("ethane", eos="Peng Robinson")
+spec_state!(eth, p=101325, T=373.15)
+thermocalc!(eth, "Entropy") # alternatively, thermocalc!(eth, "S"), or if you want more, thermocalc!(eth, "All")
+
+but = phasestate("butane", eos="Peng Robinson")
+
+my_mixture = mix(eth, but, molefracs=[0.1,0.9], mixingrules="Wong-Sandler") # mix automatically sets pressure and temperature for butane equal to that of ethane
+thermocalc!(my_mixture, "Fugacity Coefficient", "butane") # alternatively, 
+
