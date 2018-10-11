@@ -1,5 +1,7 @@
 module PengRobinson
 
+using PolynomialRoots
+
 struct PengRobinson{T<:Real}
     pc::T
     Tc::T
@@ -36,7 +38,23 @@ function pengRobinson(pc, Tc, ω)
     a = 0.45724 * R() ^2 * Tc^2 /pc
     b = 0.0778*R() * Tc /pc
     κ = 0.37464 + 1.54226*ω - 0.26992*ω^2
-    return pengRobinson(pc, Tc, a,b,ω,κ,)
+    return pengRobinson(pc, Tc, a,b,ω,κ)
 end
 
+function get_the_real(vec::Vector{Complex{T}}) where {T<:Number}
+    for i in vec
+        if abs(imag(i)) < 2*eps(T)
+            return real(i)
+        end
+    end
 end
+
+function volume_roots(p_::PengRobinson, p, T)
+    c1_ = c1(p_, p, T)
+    c2_ = c2(p_, p, T)
+    c3_ = c3(p_, p, T)
+    roots_ = roots([c3_, c2_, c1_, 1.0])
+    return roots_
+end
+
+end # ends module PengRobinson
