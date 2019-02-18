@@ -1,5 +1,7 @@
 module Thermodynamics
 
+using ThermodynamicsBase
+
 include("abstracts.jl")
 include("IdealGasBackend.jl")
 
