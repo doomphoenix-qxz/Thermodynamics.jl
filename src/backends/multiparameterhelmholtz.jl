@@ -19,7 +19,7 @@
 ################################################################################
 
 
-struct MultiparameterEOS{T_} where T_ <: AbstractFloat
+struct MultiparameterEOS{T_} <: AbstractEquationOfState where T_ <: AbstractFloat
     Tc::T_
     ρc::T_
     pc::T_

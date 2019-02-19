@@ -7,7 +7,7 @@
 # as IdealGasPotentialsState) are responsible to throw an error if heat capacity
 # data is missing.
 
-struct IdealGasData{T_} where T <: AbstractFloat
+struct IdealGasData{T_} <: AbstractEquationOfState where T <: AbstractFloat
     CompoundName::String
     MW::T_
     CpCoefficients::Union{Vector{T_}, Missing}

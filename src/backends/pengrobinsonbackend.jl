@@ -2,7 +2,7 @@
 
 using PolynomialRoots
 
-struct PengRobinsonData{T<:Real}
+struct PengRobinsonData{T} <: AbstractEquationOfState where T <: AbstractFloat
     CompoundName::String
     MW::T
     Pc::T
