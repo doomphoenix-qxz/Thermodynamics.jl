@@ -1,4 +1,3 @@
-#parameterized_eos.jl
 ################################################################################
 # Note: The following is based on the nomenclature in the paper
 # "Revised Release on the IAPWS Formulation 1995 for the Thermodynamic
