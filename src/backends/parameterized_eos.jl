@@ -1,0 +1,426 @@
+#parameterized_eos.jl
+################################################################################
+# Note: The following is based on the nomenclature in the paper
+# "Revised Release on the IAPWS Formulation 1995 for the Thermodynamic
+# Properties of Ordinary Water Substance for General and Scientific Use"
+# by IAPWS, the International Association for the Properties of Water and Steam.
+#
+# It is more or less as follows:
+#
+# ϕ : Dimensionless Helmholtz energy of water as a fucntion of density and temperature
+# δ : Dimensionless density of Water
+# τ : Dimensionless temperature of water
+# n, d, t, α, β, γ, ϵ, A, B, C, D : these are parameters used in fitting the
+# equation of state to data. As far as we're concerned, they are constants with
+# no real physical significance.
+#
+# Note that although the code was written by consulting the IAPWS paper, it is
+# applicable to any
+################################################################################
+
+module pr
+import
+struct pengRobinson{T<:Real}
+    Tc::T
+    Pc::T
+    a::T
+    b::T
+    ω::T
+    α::Function
+    A::Function
+    B::Function
+    c1::Function
+    c2::Function
+    c3::Function
+end
+
+
+
+end #end module pr
+
+__precompile__()
+module parameterized_eos
+import ForwardDiff
+import Calculus
+using Optim
+struct parameterizedeos
+    Tc::Float64
+    ρc::Float64
+    pc::Float64
+    ω::Float64
+    R::Float64
+
+    #parameters for ideal gas portion
+    n₀::Vector{Float64}
+    γ₀::Vector{Float64}
+
+    # parameters for residual term 1
+    n₁::Vector{Float64}
+    d₁::Vector{Float64}
+    t₁::Vector{Float64}
+
+    # parameters for residual term 2
+    n₂::Vector{Float64}
+    d₂::Vector{Float64}
+    t₂::Vector{Float64}
+    c₂::Vector{Float64}
+
+    # parameters for residual term 3
+    n₃::Vector{Float64}
+    d₃::Vector{Float64}
+    t₃::Vector{Float64}
+    α₃::Vector{Float64}
+    β₃::Vector{Float64}
+    γ₃::Vector{Float64}
+    ϵ₃::Vector{Float64}
+
+    # parameters for residual term 4
+    n₄::Vector{Float64}
+    a₄::Vector{Float64}
+    b₄::Vector{Float64}
+    β₄::Vector{Float64}
+    A₄::Vector{Float64}
+    B₄::Vector{Float64}
+    C₄::Vector{Float64}
+    D₄::Vector{Float64}
+
+end
+
+function Σ(expr)
+    return sum(eval(@. expr))
+end
+
+function ϕ₀(eos::parameterizedeos, δ, τ)
+    first = log(δ) + eos.n₀[1] + eos.n₀[2]*τ + eos.n₀[3]*log(τ)
+    end_ = sum(eos.n₀[4:8].*log.(1-exp.(-eos.γ₀.*τ)))
+    return first + end_
+end
+
+function res_1(eos::parameterizedeos, δ, τ)
+    return sum(eos.n₁ .* (δ .^ eos.d₁) .* (τ .^ eos.t₁))
+end
+
+function res_2(eos::parameterizedeos, δ, τ)
+    return sum(eos.n₂ .* (δ .^ eos.d₂) .* (τ .^ eos.t₂) .* exp.(-δ .^ eos.c₂))
+end
+
+function res_3(eos::parameterizedeos, δ, τ)
+    return sum(eos.n₃ .* (δ .^ eos.d₃) .* (τ .^ eos.t₃) .* exp.(-eos.α₃ .* (δ - eos.ϵ₃).^2 - eos.β₃ .* (τ - eos.γ₃).^2))
+end
+
+function θ(eos::parameterizedeos, δ, τ)
+    return sum((1-τ) + eos.A₄.*((δ - 1).^2).^(1 ./(2 .* eos.β₄)))
+end
+
+function Δ(eos::parameterizedeos, δ, τ)
+    return sum(θ(eos, δ, τ).^2 + eos.B₄ .* ((δ - 1).^2) .* eos.a₄)
+end
+
+function Ψ(eos::parameterizedeos, δ, τ)
+    return sum(exp(-eos.C₄ .* (δ - 1)^2 - eos.D₄ .* (τ - 1)^2))
+end
+
+function res_4(eos::parameterizedeos, δ, τ)
+    return sum(eos.n₄ .* Δ(eos,δ,τ).^eos.b₄ .* δ * Ψ(eos,δ,τ))
+end
+
+function ϕr(eos::parameterizedeos, δ, τ)
+    return res_1(eos, δ, τ)+res_2(eos, δ, τ)+res_3(eos, δ, τ)+res_4(eos, δ, τ)
+end
+
+function ϕ₀_δ(eos::parameterizedeos, δ, τ)
+    f(δ_) = ϕ₀(eos, δ_, τ)
+    return Calculus.derivative(f, δ)
+end
+function ϕ₀_δδ(eos::parameterizedeos, δ, τ)
+    f(δ_) = ϕ₀_δ(eos, δ_, τ)
+    return Calculus.derivative(f, δ)
+end
+function ϕ₀_τ(eos::parameterizedeos, δ, τ)
+    f(τ_) = ϕ₀(eos, δ, τ_)
+    return Calculus.derivative(f, τ)
+end
+function ϕ₀_ττ(eos::parameterizedeos, δ, τ)
+    f(τ_) = ϕ₀_τ(eos, δ, τ_)
+    return Calculus.derivative(f, τ)
+end
+function ϕ₀_δτ(eos::parameterizedeos, δ, τ)
+    return 0.0
+end
+
+function ϕr_δ(eos::parameterizedeos, δ, τ)
+    f(δ_) = ϕr(eos, δ_, τ)
+    return Calculus.derivative(f, δ)
+end
+function ϕr_δδ(eos::parameterizedeos, δ, τ)
+    f(δ_) = ϕr_δ(eos, δ_, τ)
+    return Calculus.derivative(f, δ)
+end
+function ϕr_τ(eos::parameterizedeos, δ, τ)
+    f(τ_) = ϕr(eos, δ, τ_)
+    return Calculus.derivative(f, τ)
+end
+function ϕr_ττ(eos::parameterizedeos, δ, τ)
+    f(τ_) = ϕr_τ(eos, δ, τ_)
+    return Calculus.derivative(f, τ)
+end
+function ϕr_δτ(eos::parameterizedeos, δ, τ)
+    f(τ_) = ϕr_δ(eos, δ, τ_)
+    return Calculus.derivative(f, τ)
+end
+
+function test_peos(eos::parameterizedeos, δ, τ)
+    print("Testing module parameterized_eos:\n")
+    print("δ = "*string(δ))
+    print("\nτ = "*string(τ))
+    print("\nϕ₀ = "*string(ϕ₀(eos, δ, τ)))
+    print("\nϕ₀_δ = "*string(ϕ₀_δ(eos, δ, τ)))
+    print("\nϕ₀_δδ = "*string(ϕ₀_δδ(eos, δ, τ)))
+    print("\nϕ₀_τ = "*string(ϕ₀_τ(eos, δ, τ)))
+    print("\nϕ₀_ττ = "*string(ϕ₀_ττ(eos, δ, τ)))
+    print("\nϕ₀_δτ = "*string(ϕ₀_δτ(eos, δ, τ)))
+    print("\nϕr = "*string(ϕr(eos, δ, τ)))
+    print("\nϕr_δ = "*string(ϕr_δ(eos, δ, τ)))
+    print("\nϕr_δδ = "*string(ϕr_δδ(eos, δ, τ)))
+    print("\nϕr_τ = "*string(ϕr_τ(eos, δ, τ)))
+    print("\nϕr_ττ = "*string(ϕr_ττ(eos, δ, τ)))
+    print("\nϕr_δτ = "*string(ϕr_δτ(eos, δ, τ)))
+    print("\n\nNew test conditions:")
+    ρ = 467.5483
+    T = 305
+    @printf "\nT = %f K, ρ = %f kg/m³" T ρ
+
+    p_ = 7.5e6
+    print("\np = "*string(p_))
+    p_ = p(eos, ρ, T)
+    print("\np = "*string(p_))
+    print("\nSolving in reverse, with p = "string(p_)*" and T="*string(T))
+    #print(ρ_from_p(eos, p_, 300))
+    ρ_from_p(eos, p_, T)
+end
+
+function p(eos::parameterizedeos, ρ, T)
+    δ = ρ/eos.ρc
+    τ = eos.Tc/T
+    #@printf "δ = %f\n" δ
+    #@printf "τ = %f\n" τ
+    #@printf "derivative is %f\n" ϕr_δ(eos, δ, τ)
+    p_nondim = 1 + δ*ϕr_δ(eos, δ, τ)
+    return p_nondim * ρ*eos.R*T
+end
+
+function ρ_from_p(eos::parameterizedeos, p_, T)
+    function solveit(ρ_guess)
+        return abs(p_ - p(eos, ρ_guess, T))
+    end
+    a = optimize(solveit, 0.00001, 1500.0)
+    print(a)
+end
+
+function u(eos::parameterizedeos, p_, T)
+    ρ = ρ_from_p(eos, p_, T)
+    δ = ρ/eos.ρc
+    τ = eos.Tc/T
+    u_nondim = τ * (ϕ₀_τ(eos, δ, τ) + ϕr_τ(eos, δ, τ))
+    return u_nondim * T*eos.R
+end
+
+function s(eos::parameterizedeos, p_, T)
+    ρ = ρ_from_p(eos, p_, T)
+    δ = ρ/eos.ρc
+    τ = eos.Tc/T
+    s_nondim = τ * (ϕ₀_τ(eos, δ, τ) + ϕr_τ(eos, δ, τ)) - (ϕ₀(eos, δ, τ) + ϕr(eos, δ, τ))
+    return s_nondim * eos.R
+end
+
+function H(eos::parameterizedeos, p_, T)
+    ρ = ρ_from_p(eos, p_, T)
+    δ = ρ/eos.ρc
+    τ = eos.Tc/T
+    H_nondim = 1 + τ * (ϕ₀_τ(eos, δ, τ) + ϕr_τ(eos, δ, τ)) + δ*ϕr_δ(eos, δ, τ)
+    return H_nondim * T*eos.R
+end
+
+function Cp(eos::parameterizedeos, p_, T)
+    ρ = ρ_from_p(eos, p_, T)
+    δ = ρ/eos.ρc
+    τ = eos.Tc/T
+    part1 = -τ^2 * (ϕ₀_ττ(eos, δ, τ) + ϕr_ττ(eos, δ, τ))
+    p2_top = (1 + δ*ϕr_δ(eos, δ, τ) - δ*τ*ϕr_δτ(eos, δ, τ))^2
+    p2_bot = 1 + 2δ*ϕr_δ(eos, δ, τ) + δ^2*ϕr_δδ(eos, δ, τ)
+    Cp_nondim = part1 + p2_top/p2_bot
+    return Cp_nondim * eos.R
+end
+
+end # ends module parameterized_eos
+
+module IAPWS
+using parameterized_eos
+function gen_iapws()
+    h2o_n₀ = [-8.3204464837497, 6.6832105275932, 3.00632, 0.012436, 0.97315, 1.27950,
+              0.96956, 0.24873]
+    h2o_γ₀ = [1.28728967, 3.53734222, 7.74073708, 9.24437796, 27.5075105]
+
+    h2o_n₁ = [0.12533547935523e-1,
+              0.78957634722828e1,
+              -0.87803203303561e1,
+              0.31802509345418,
+              -0.26145533859358,
+              -0.78199751687981e-2,
+              0.88089493102134e-2]
+    h2o_d₁ = [1, 1, 1, 2, 2, 3, 4]
+    h2o_t₁ = [-0.5, 0.875, 1, 0.5, 0.75, 0.375, 1]
+
+    h2o_n₂ = [-0.66856572307965,
+              0.20433810950965,
+              -0.66212605039687e-4,
+              -0.19232721156002,
+              -0.25709043003438,
+              0.16074868486251,
+              -0.40092828925807e-1,
+              0.39343422603254e-6,
+              -0.75941377088144e-5,
+              0.56250979351888e-3,
+              -0.15608652257135e-4,
+              0.11537996422951e-8,
+              0.36582165144204e-6,
+              -0.13251180074668e-11,
+              -0.62639586912454e-9,
+              -0.10793600908932,
+              0.17611491008752e-1,
+              0.22132295167546,
+              -0.40247669763528,
+              0.58083399985759,
+              0.49969146990806e-2,
+              -0.31358700712549e-1,
+              -0.74315929710341,
+              0.47807329915480,
+              0.20527940895948e-1,
+              -0.13636435110343,
+              0.14180634400617e-1,
+              0.83326504880713e-2,
+              -0.29052336009585e-1,
+              0.38615085574206e-1,
+              -0.20393486513704e-1,
+              -0.16554050063734e-2,
+              0.19955571979541e-2,
+              0.15870308324157e-3,
+              -0.16388568342530e-4,
+              0.43613615723811e-1,
+              0.34994005463765e-1,
+              -0.76788197844621e-1,
+              0.22446277332006e-1,
+              -0.62689710414685e-4,
+              -0.55711118565645e-9,
+              -0.19905718354408,
+              0.31777497330738,
+              -0.11841182425981]
+    h2o_c₂ = [1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,
+              2,2,2, 3,3,3,3, 4,6,6,6,6]
+    h2o_d₂ = [1,1,1,2,2,3,4,4,5,7,9,10,11,13,15,1,2,2,2,3,4,4,4,5,6,6,7,9,9,9,9,9,
+              10,10,12,3,4,4,5,14,3,6,6,6]
+    h2o_t₂ = [4,6,12,1,5,4,2,13,9,3,4,11,4,13,1,7,1,9,10,10,3,7,10,10,6,10,10,1,2,3,
+              4,8,6,9,8,16,22,23,23,10,50,44,46,50]
+
+    h2o_d₃ = [3, 3, 3]
+    h2o_t₃ = [0,1,4]
+    h2o_n₃ = [-0.31306260323435e2, 0.31546140237781e2, -0.25213154341695e4]
+    h2o_α₃ = [20,20,20]
+    h2o_β₃ = [150,150,150]
+    h2o_γ₃ = [1.21,1.21,1.25]
+    h2o_ϵ₃ = [1,1,1]
+
+    h2o_a₄ = [3.5,3.5]
+    h2o_b₄ = [0.85,0.95]
+    h2o_β₄ = [0.3,0.3]
+    h2o_n₄ = [-0.14874640856724, 0.31806110878444]
+    h2o_A₄ = [0.32,0.32]
+    h2o_B₄ = [0.2,0.2]
+    h2o_C₄ = [28,32]
+    h2o_D₄ = [700,800]
+
+    Tc = 647.096
+    ρc = 322
+    R = 0.46151805*1000
+
+    return parameterized_eos.parameterizedeos(Tc,ρc,R,h2o_n₀,h2o_γ₀,h2o_n₁,h2o_d₁,h2o_t₁,
+      h2o_n₂,h2o_d₂,h2o_t₂,h2o_c₂,h2o_n₃,h2o_d₃,h2o_t₃,h2o_α₃,h2o_β₃,h2o_γ₃,
+      h2o_ϵ₃,h2o_n₄,h2o_a₄,h2o_b₄,h2o_β₄,h2o_A₄,h2o_B₄,h2o_C₄,h2o_D₄)
+end
+#eos = gen_iapws()
+#Tc = 647.096
+#ρc = 322
+#δ₁ = 838.025/ρc
+#τ₁ = Tc/500
+#parameterized_eos.test_peos(eos, δ₁, τ₁)
+#parameterized_eos.ϕ₀(eos, δ₁, τ₁)
+end # ends module IAPWS
+
+module co2
+import parameterized_eos
+function gen_co2()
+    co2_n₀= [ 8.37304456, -3.70454304,  2.5       ,  1.99427042,  0.62105248,
+        0.41195293,  1.04028922,  0.08327678]
+
+    co2_γ₀ = [3.15163,   6.1119 ,   6.77708,
+            11.32384,  27.08792]
+
+    co2_n₁ = [ 0.38856823,  2.93854759, -5.58671885, -0.767532  ,  0.31729004,
+            0.54803316,  0.12279411]
+    co2_d₁ = [ 1.,  1.,  1.,  1.,  2.,  2.,  3.]
+    co2_t₁ = [ 0.  ,  0.75,  1.  ,  2.  ,  0.75,  2.  ,  0.75]
+    co2_n₂ = [  2.16589615e+00,   1.58417351e+00,  -2.31327054e-01,
+             5.81169164e-02,  -5.53691372e-01,   4.89466159e-01,
+            -2.42757398e-02,   6.24947905e-02,  -1.21758602e-01,
+            -3.70556853e-01,  -1.67758797e-02,  -1.19607366e-01,
+            -4.56193625e-02,   3.56127893e-02,  -7.44277271e-03,
+            -1.73957049e-03,  -2.18101213e-02,   2.43321666e-02,
+            -3.47401334e-02,   1.43387158e-01,  -1.34919691e-01,
+            -2.31512251e-02,   1.23631255e-02,   2.10583220e-03,
+            -3.39585190e-04,   5.59936518e-03,  -3.03351181e-04]
+
+    co2_d₂ = [  1.,   2.,   4.,   5.,   5.,   5.,   6.,   6.,   6.,   1.,   1.,
+             4.,   4.,   4.,   7.,   8.,   2.,   3.,   3.,   5.,   5.,   6.,
+             7.,   8.,  10.,   4.,   8.]
+
+    co2_c₂ = [ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.,  2.,  2.,  2.,  2.,
+            2.,  2.,  2.,  3.,  3.,  3.,  4.,  4.,  4.,  4.,  4.,  4.,  5.,  6.]
+
+    co2_t₂ = [  1.5,   1.5,   2.5,   0. ,   1.5,   2. ,   0. ,   1. ,   2. ,
+             3. ,   6. ,   3. ,   6. ,   8. ,   6. ,   0. ,   7. ,  12. ,
+            16. ,  22. ,  24. ,  16. ,  24. ,   8. ,   2. ,  28. ,  14. ]
+
+    co2_n₃ = [  -213.65488688,  26641.56914927, -24027.21220456,  -283.41603424,
+              212.472844  ]
+    co2_n₄ = [-0.66642277,  0.72608632,  0.05506867]
+    co2_d₃ = [2.,2.,2.,3.,3.]
+    co2_t₃ = [1.,0.,1.,3.,3.]
+    co2_α₃ = [25.,25.,25.,15.,20.]
+    co2_β₃ = [325.,300.,300.,275.,275.]
+    co2_γ₃ = [1.16,1.19,1.19,1.25,1.22]
+    co2_ϵ₃ = [1.,1.,1.,1.,1.]
+
+    co2_a₄ = [3.5,3.5,3.0]
+    co2_b₄ = [0.875,0.925,0.875]
+    co2_β₄ = [0.3,0.3,0.3]
+    co2_A₄ = [0.7,0.7,0.7]
+    co2_B₄ = [0.3,0.3,1.0]
+    co2_C₄ = [10.0,10.0,12.5]
+    co2_D₄ = [275,275,275]
+
+    Tc = 304.1282
+    ρc = 467.6
+    pc = 7.38e6
+    R = 188.9241
+    ω = 0.228
+    return parameterized_eos.parameterizedeos(Tc,ρc,pc,ω,R,co2_n₀,co2_γ₀,co2_n₁,co2_d₁,co2_t₁,
+      co2_n₂,co2_d₂,co2_t₂,co2_c₂,co2_n₃,co2_d₃,co2_t₃,co2_α₃,co2_β₃,co2_γ₃,
+      co2_ϵ₃,co2_n₄,co2_a₄,co2_b₄,co2_β₄,co2_A₄,co2_B₄,co2_C₄,co2_D₄)
+end
+eos = gen_co2()
+Tc = 304.1282
+ρc = 467.6
+δ₁ = 838.025/ρc
+τ₁ = Tc/500
+parameterized_eos.test_peos(eos, δ₁, τ₁)
+end #ends module co2
