@@ -18,188 +18,132 @@
 # applicable to any
 ################################################################################
 
-module pr
-import
-struct pengRobinson{T<:Real}
-    Tc::T
-    Pc::T
-    a::T
-    b::T
-    ω::T
-    α::Function
-    A::Function
-    B::Function
-    c1::Function
-    c2::Function
-    c3::Function
-end
 
-
-
-end #end module pr
-
-__precompile__()
-module parameterized_eos
-import ForwardDiff
-import Calculus
-using Optim
-struct parameterizedeos
-    Tc::Float64
-    ρc::Float64
-    pc::Float64
-    ω::Float64
-    R::Float64
+struct MultiparameterEOS{T_} where T_ <: AbstractFloat
+    Tc::T_
+    ρc::T_
+    pc::T_
+    ω::T_
+    R::T_
 
     #parameters for ideal gas portion
-    n₀::Vector{Float64}
-    γ₀::Vector{Float64}
+    n₀::Vector{T_}
+    γ₀::Vector{T_}
 
     # parameters for residual term 1
-    n₁::Vector{Float64}
-    d₁::Vector{Float64}
-    t₁::Vector{Float64}
+    n₁::Vector{T_}
+    d₁::Vector{T_}
+    t₁::Vector{T_}
 
     # parameters for residual term 2
-    n₂::Vector{Float64}
-    d₂::Vector{Float64}
-    t₂::Vector{Float64}
-    c₂::Vector{Float64}
+    n₂::Vector{T_}
+    d₂::Vector{T_}
+    t₂::Vector{T_}
+    c₂::Vector{T_}
 
     # parameters for residual term 3
-    n₃::Vector{Float64}
-    d₃::Vector{Float64}
-    t₃::Vector{Float64}
-    α₃::Vector{Float64}
-    β₃::Vector{Float64}
-    γ₃::Vector{Float64}
-    ϵ₃::Vector{Float64}
+    n₃::Vector{T_}
+    d₃::Vector{T_}
+    t₃::Vector{T_}
+    α₃::Vector{T_}
+    β₃::Vector{T_}
+    γ₃::Vector{T_}
+    ϵ₃::Vector{T_}
 
     # parameters for residual term 4
-    n₄::Vector{Float64}
-    a₄::Vector{Float64}
-    b₄::Vector{Float64}
-    β₄::Vector{Float64}
-    A₄::Vector{Float64}
-    B₄::Vector{Float64}
-    C₄::Vector{Float64}
-    D₄::Vector{Float64}
+    n₄::Vector{T_}
+    a₄::Vector{T_}
+    b₄::Vector{T_}
+    β₄::Vector{T_}
+    A₄::Vector{T_}
+    B₄::Vector{T_}
+    C₄::Vector{T_}
+    D₄::Vector{T_}
 
 end
 
-function Σ(expr)
-    return sum(eval(@. expr))
-end
-
-function ϕ₀(eos::parameterizedeos, δ, τ)
+function ϕ₀(eos::MultiparameterEOS, δ, τ)
     first = log(δ) + eos.n₀[1] + eos.n₀[2]*τ + eos.n₀[3]*log(τ)
     end_ = sum(eos.n₀[4:8].*log.(1-exp.(-eos.γ₀.*τ)))
     return first + end_
 end
 
-function res_1(eos::parameterizedeos, δ, τ)
+function res_1(eos::MultiparameterEOS, δ, τ)
     return sum(eos.n₁ .* (δ .^ eos.d₁) .* (τ .^ eos.t₁))
 end
 
-function res_2(eos::parameterizedeos, δ, τ)
+function res_2(eos::MultiparameterEOS, δ, τ)
     return sum(eos.n₂ .* (δ .^ eos.d₂) .* (τ .^ eos.t₂) .* exp.(-δ .^ eos.c₂))
 end
 
-function res_3(eos::parameterizedeos, δ, τ)
+function res_3(eos::MultiparameterEOS, δ, τ)
     return sum(eos.n₃ .* (δ .^ eos.d₃) .* (τ .^ eos.t₃) .* exp.(-eos.α₃ .* (δ - eos.ϵ₃).^2 - eos.β₃ .* (τ - eos.γ₃).^2))
 end
 
-function θ(eos::parameterizedeos, δ, τ)
+function θ(eos::MultiparameterEOS, δ, τ)
     return sum((1-τ) + eos.A₄.*((δ - 1).^2).^(1 ./(2 .* eos.β₄)))
 end
 
-function Δ(eos::parameterizedeos, δ, τ)
+function Δ(eos::MultiparameterEOS, δ, τ)
     return sum(θ(eos, δ, τ).^2 + eos.B₄ .* ((δ - 1).^2) .* eos.a₄)
 end
 
-function Ψ(eos::parameterizedeos, δ, τ)
+function Ψ(eos::MultiparameterEOS, δ, τ)
     return sum(exp(-eos.C₄ .* (δ - 1)^2 - eos.D₄ .* (τ - 1)^2))
 end
 
-function res_4(eos::parameterizedeos, δ, τ)
+function res_4(eos::MultiparameterEOS, δ, τ)
     return sum(eos.n₄ .* Δ(eos,δ,τ).^eos.b₄ .* δ * Ψ(eos,δ,τ))
 end
 
-function ϕr(eos::parameterizedeos, δ, τ)
+function ϕr(eos::MultiparameterEOS, δ, τ)
     return res_1(eos, δ, τ)+res_2(eos, δ, τ)+res_3(eos, δ, τ)+res_4(eos, δ, τ)
 end
 
-function ϕ₀_δ(eos::parameterizedeos, δ, τ)
+function ϕ₀_δ(eos::MultiparameterEOS, δ, τ)
     f(δ_) = ϕ₀(eos, δ_, τ)
-    return Calculus.derivative(f, δ)
+    return ForwardDiff.derivative(f, δ)
 end
-function ϕ₀_δδ(eos::parameterizedeos, δ, τ)
+function ϕ₀_δδ(eos::MultiparameterEOS, δ, τ)
     f(δ_) = ϕ₀_δ(eos, δ_, τ)
-    return Calculus.derivative(f, δ)
+    return ForwardDiff.derivative(f, δ)
 end
-function ϕ₀_τ(eos::parameterizedeos, δ, τ)
+function ϕ₀_τ(eos::MultiparameterEOS, δ, τ)
     f(τ_) = ϕ₀(eos, δ, τ_)
-    return Calculus.derivative(f, τ)
+    return ForwardDiff.derivative(f, τ)
 end
-function ϕ₀_ττ(eos::parameterizedeos, δ, τ)
+function ϕ₀_ττ(eos::MultiparameterEOS, δ, τ)
     f(τ_) = ϕ₀_τ(eos, δ, τ_)
-    return Calculus.derivative(f, τ)
+    return ForwardDiff.derivative(f, τ)
 end
-function ϕ₀_δτ(eos::parameterizedeos, δ, τ)
+function ϕ₀_δτ(eos::MultiparameterEOS, δ, τ)
     return 0.0
 end
 
-function ϕr_δ(eos::parameterizedeos, δ, τ)
+function ϕr_δ(eos::MultiparameterEOS, δ, τ)
     f(δ_) = ϕr(eos, δ_, τ)
-    return Calculus.derivative(f, δ)
+    return ForwardDiff.derivative(f, δ)
 end
-function ϕr_δδ(eos::parameterizedeos, δ, τ)
+function ϕr_δδ(eos::MultiparameterEOS, δ, τ)
     f(δ_) = ϕr_δ(eos, δ_, τ)
-    return Calculus.derivative(f, δ)
+    return ForwardDiff.derivative(f, δ)
 end
-function ϕr_τ(eos::parameterizedeos, δ, τ)
+function ϕr_τ(eos::MultiparameterEOS, δ, τ)
     f(τ_) = ϕr(eos, δ, τ_)
-    return Calculus.derivative(f, τ)
+    return ForwardDiff.derivative(f, τ)
 end
-function ϕr_ττ(eos::parameterizedeos, δ, τ)
+function ϕr_ττ(eos::MultiparameterEOS, δ, τ)
     f(τ_) = ϕr_τ(eos, δ, τ_)
-    return Calculus.derivative(f, τ)
+    return ForwardDiff.derivative(f, τ)
 end
-function ϕr_δτ(eos::parameterizedeos, δ, τ)
+function ϕr_δτ(eos::MultiparameterEOS, δ, τ)
     f(τ_) = ϕr_δ(eos, δ, τ_)
-    return Calculus.derivative(f, τ)
+    return ForwardDiff.derivative(f, τ)
 end
 
-function test_peos(eos::parameterizedeos, δ, τ)
-    print("Testing module parameterized_eos:\n")
-    print("δ = "*string(δ))
-    print("\nτ = "*string(τ))
-    print("\nϕ₀ = "*string(ϕ₀(eos, δ, τ)))
-    print("\nϕ₀_δ = "*string(ϕ₀_δ(eos, δ, τ)))
-    print("\nϕ₀_δδ = "*string(ϕ₀_δδ(eos, δ, τ)))
-    print("\nϕ₀_τ = "*string(ϕ₀_τ(eos, δ, τ)))
-    print("\nϕ₀_ττ = "*string(ϕ₀_ττ(eos, δ, τ)))
-    print("\nϕ₀_δτ = "*string(ϕ₀_δτ(eos, δ, τ)))
-    print("\nϕr = "*string(ϕr(eos, δ, τ)))
-    print("\nϕr_δ = "*string(ϕr_δ(eos, δ, τ)))
-    print("\nϕr_δδ = "*string(ϕr_δδ(eos, δ, τ)))
-    print("\nϕr_τ = "*string(ϕr_τ(eos, δ, τ)))
-    print("\nϕr_ττ = "*string(ϕr_ττ(eos, δ, τ)))
-    print("\nϕr_δτ = "*string(ϕr_δτ(eos, δ, τ)))
-    print("\n\nNew test conditions:")
-    ρ = 467.5483
-    T = 305
-    @printf "\nT = %f K, ρ = %f kg/m³" T ρ
 
-    p_ = 7.5e6
-    print("\np = "*string(p_))
-    p_ = p(eos, ρ, T)
-    print("\np = "*string(p_))
-    print("\nSolving in reverse, with p = "string(p_)*" and T="*string(T))
-    #print(ρ_from_p(eos, p_, 300))
-    ρ_from_p(eos, p_, T)
-end
 
-function p(eos::parameterizedeos, ρ, T)
+function p(eos::MultiparameterEOS, ρ, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
     #@printf "δ = %f\n" δ
@@ -209,7 +153,7 @@ function p(eos::parameterizedeos, ρ, T)
     return p_nondim * ρ*eos.R*T
 end
 
-function ρ_from_p(eos::parameterizedeos, p_, T)
+function ρ_from_p(eos::MultiparameterEOS, p_, T)
     function solveit(ρ_guess)
         return abs(p_ - p(eos, ρ_guess, T))
     end
@@ -217,7 +161,7 @@ function ρ_from_p(eos::parameterizedeos, p_, T)
     print(a)
 end
 
-function u(eos::parameterizedeos, p_, T)
+function u(eos::MultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -225,7 +169,7 @@ function u(eos::parameterizedeos, p_, T)
     return u_nondim * T*eos.R
 end
 
-function s(eos::parameterizedeos, p_, T)
+function s(eos::MultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -233,7 +177,7 @@ function s(eos::parameterizedeos, p_, T)
     return s_nondim * eos.R
 end
 
-function H(eos::parameterizedeos, p_, T)
+function H(eos::MultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -241,7 +185,7 @@ function H(eos::parameterizedeos, p_, T)
     return H_nondim * T*eos.R
 end
 
-function Cp(eos::parameterizedeos, p_, T)
+function Cp(eos::MultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -252,7 +196,6 @@ function Cp(eos::parameterizedeos, p_, T)
     return Cp_nondim * eos.R
 end
 
-end # ends module parameterized_eos
 
 module IAPWS
 using parameterized_eos
@@ -343,17 +286,10 @@ function gen_iapws()
     ρc = 322
     R = 0.46151805*1000
 
-    return parameterized_eos.parameterizedeos(Tc,ρc,R,h2o_n₀,h2o_γ₀,h2o_n₁,h2o_d₁,h2o_t₁,
+    return MultiparameterEOS(Tc,ρc,R,h2o_n₀,h2o_γ₀,h2o_n₁,h2o_d₁,h2o_t₁,
       h2o_n₂,h2o_d₂,h2o_t₂,h2o_c₂,h2o_n₃,h2o_d₃,h2o_t₃,h2o_α₃,h2o_β₃,h2o_γ₃,
       h2o_ϵ₃,h2o_n₄,h2o_a₄,h2o_b₄,h2o_β₄,h2o_A₄,h2o_B₄,h2o_C₄,h2o_D₄)
 end
-#eos = gen_iapws()
-#Tc = 647.096
-#ρc = 322
-#δ₁ = 838.025/ρc
-#τ₁ = Tc/500
-#parameterized_eos.test_peos(eos, δ₁, τ₁)
-#parameterized_eos.ϕ₀(eos, δ₁, τ₁)
 end # ends module IAPWS
 
 module co2
@@ -413,14 +349,14 @@ function gen_co2()
     pc = 7.38e6
     R = 188.9241
     ω = 0.228
-    return parameterized_eos.parameterizedeos(Tc,ρc,pc,ω,R,co2_n₀,co2_γ₀,co2_n₁,co2_d₁,co2_t₁,
+    return MultiparameterEOS(Tc,ρc,pc,ω,R,co2_n₀,co2_γ₀,co2_n₁,co2_d₁,co2_t₁,
       co2_n₂,co2_d₂,co2_t₂,co2_c₂,co2_n₃,co2_d₃,co2_t₃,co2_α₃,co2_β₃,co2_γ₃,
       co2_ϵ₃,co2_n₄,co2_a₄,co2_b₄,co2_β₄,co2_A₄,co2_B₄,co2_C₄,co2_D₄)
 end
-eos = gen_co2()
-Tc = 304.1282
-ρc = 467.6
-δ₁ = 838.025/ρc
-τ₁ = Tc/500
-parameterized_eos.test_peos(eos, δ₁, τ₁)
+#eos = gen_co2()
+#Tc = 304.1282
+#ρc = 467.6
+#δ₁ = 838.025/ρc
+#τ₁ = Tc/500
+#test_peos(eos, δ₁, τ₁)
 end #ends module co2
