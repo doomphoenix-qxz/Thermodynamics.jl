@@ -1,4 +1,5 @@
-Here I will be adopting a fairly well-agreed on nomenclature for chemical thermodynamics and transport properties
+Here I will be adopting a fairly well-agreed on nomenclature for chemical thermodynamics and transport properties.
+I follow IUPAC recommended symbols whenever possible.
 
 Thermodynamics                                                   Units are here. If nothing, it's dimensionless.
   ρ  is molar density                                            mol/m^3
@@ -10,7 +11,7 @@ Thermodynamics                                                   Units are here.
   T  is temperature                                              K
   S  is specific entropy                                         J/kg*K
   U  is specific internal energy                                 J/mol
-  H  is specific enthalpy                                        J/mol 
+  H  is specific enthalpy                                        J/mol
   A  is specific Helmholtz energy                                J/mol
   G  is specific Gibbs Energy                                    J/mol
   Cp is constant-pressure heat capacity                          J/mol*K
@@ -18,7 +19,8 @@ Thermodynamics                                                   Units are here.
   R  is the ideal gas constant (= 8.31446 J/mol*K)               J/mol*K
 
 Chemical Thermodynamics
-  xᵢ is mole fraction 
+  μ  is chemical potential                                       J/mol
+  xᵢ is mole fraction
   ωᵢ is mass fraction
   f  is fugacity                                                 Pa
   a  is activity
@@ -36,8 +38,8 @@ Transport properties
   μ  is dynamic viscosity                                        Pa*s
   ν  is kinematic viscosity (= μ/ρm) (This is Greek nu, not v)   m2/s
   α  is thermal diffusivity (= k/ρ*Cp)                           m2/s
-  Pr is Prandtl number (= k*μ/Cp)         
-  
+  Pr is Prandtl number (= k*μ/Cp)
+
 Chemical Properties
   MW is molar mass/molecular weight                              kg/mol
   ρc, Pc, and Tc are critical density, pressure, and temperature respectively

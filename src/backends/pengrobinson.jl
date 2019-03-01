@@ -2,7 +2,7 @@
 
 using PolynomialRoots
 
-struct PengRobinsonData{T} <: AbstractEquationOfState where T <: AbstractFloat
+struct PengRobinsonData{T} <: AbstractCubicEOS where T <: AbstractFloat
     CompoundName::String
     MW::T
     Pc::T
@@ -15,24 +15,24 @@ end
 
 
 
-function α(p_::PengRobinsonData, T)
-    Tr = T/p_.Tc
-    return (1+p_.κ*(1-√(Tr)))^2
+function α(eos::PengRobinsonData, T)
+    Tr = T/eos.Tc
+    return (1+eos.κ*(1-√(Tr)))^2
 end
-function A(p_::PengRobinsonData, P, T)
-    return p_.a * α(p_, T) * P / (R() ^2 * T^2)
+function A(eos::PengRobinsonData, P, T)
+    return eos.a * α(eos, T) * P / (R() ^2 * T^2)
 end
-function B(p_::PengRobinsonData, P, T)
-    return p_.b*P/(T*R())
+function B(eos::PengRobinsonData, P, T)
+    return eos.b*P/(T*R())
 end
-function c1(p_::PengRobinsonData, P, T)
-    return (B(p_, P, T) - 1)
+function c1(eos::PengRobinsonData, P, T)
+    return (B(eos, P, T) - 1)
 end
-function c2(p_::PengRobinsonData, P, T)
-    return A(p_, P, T) - 2B(p_, P,T) - 3B(p_, P,T)^2
+function c2(eos::PengRobinsonData, P, T)
+    return A(eos, P, T) - 2B(eos, P,T) - 3B(eos, P,T)^2
 end
-function c3(p_::PengRobinson, p, T)
-    return B(p_, P,T)^3 + B(p_, P,T)^2 - A(p_, P,T)*B(p_, P,T)
+function c3(eos::PengRobinson, p, T)
+    return B(eos, P,T)^3 + B(eos, P,T)^2 - A(eos, P,T)*B(eos, P,T)
 end
 
 
@@ -51,10 +51,10 @@ function get_the_real(vec::Vector{Complex{T}}) where {T<:Number}
     end
 end
 
-function volume_roots(p_::PengRobinsonData, P, T)
-    c1_ = c1(p_, P, T)
-    c2_ = c2(p_, P, T)
-    c3_ = c3(p_, P, T)
+function volume_roots(eos::PengRobinsonData, P, T)
+    c1_ = c1(eos, P, T)
+    c2_ = c2(eos, P, T)
+    c3_ = c3(eos, P, T)
     roots_ = roots([c3_, c2_, c1_, 1.0])
     return roots_
 end
