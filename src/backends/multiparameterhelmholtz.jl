@@ -18,7 +18,7 @@
 ################################################################################
 
 
-struct MultiparameterEOS{T_} <: AbstractEquationOfState where T_ <: AbstractFloat
+struct IAPWSTypeMultiparameterEOS{T_} <: AbstractEquationOfState where T_ <: AbstractFloat
     Tc::T_
     ρc::T_
     pc::T_
@@ -61,88 +61,88 @@ struct MultiparameterEOS{T_} <: AbstractEquationOfState where T_ <: AbstractFloa
 
 end
 
-function ϕ₀(eos::MultiparameterEOS, δ, τ)
+function ϕ₀(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     first = log(δ) + eos.n₀[1] + eos.n₀[2]*τ + eos.n₀[3]*log(τ)
     end_ = sum(eos.n₀[4:8].*log.(1-exp.(-eos.γ₀.*τ)))
     return first + end_
 end
 
-function res_1(eos::MultiparameterEOS, δ, τ)
+function res_1(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(eos.n₁ .* (δ .^ eos.d₁) .* (τ .^ eos.t₁))
 end
 
-function res_2(eos::MultiparameterEOS, δ, τ)
+function res_2(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(eos.n₂ .* (δ .^ eos.d₂) .* (τ .^ eos.t₂) .* exp.(-δ .^ eos.c₂))
 end
 
-function res_3(eos::MultiparameterEOS, δ, τ)
+function res_3(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(eos.n₃ .* (δ .^ eos.d₃) .* (τ .^ eos.t₃) .* exp.(-eos.α₃ .* (δ - eos.ϵ₃).^2 - eos.β₃ .* (τ - eos.γ₃).^2))
 end
 
-function θ(eos::MultiparameterEOS, δ, τ)
+function θ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum((1-τ) + eos.A₄.*((δ - 1).^2).^(1 ./(2 .* eos.β₄)))
 end
 
-function Δ(eos::MultiparameterEOS, δ, τ)
+function Δ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(θ(eos, δ, τ).^2 + eos.B₄ .* ((δ - 1).^2) .* eos.a₄)
 end
 
-function Ψ(eos::MultiparameterEOS, δ, τ)
+function Ψ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(exp(-eos.C₄ .* (δ - 1)^2 - eos.D₄ .* (τ - 1)^2))
 end
 
-function res_4(eos::MultiparameterEOS, δ, τ)
+function res_4(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return sum(eos.n₄ .* Δ(eos,δ,τ).^eos.b₄ .* δ * Ψ(eos,δ,τ))
 end
 
-function ϕr(eos::MultiparameterEOS, δ, τ)
+function ϕr(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return res_1(eos, δ, τ)+res_2(eos, δ, τ)+res_3(eos, δ, τ)+res_4(eos, δ, τ)
 end
 
-function ϕ₀_δ(eos::MultiparameterEOS, δ, τ)
+function ϕ₀_δ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(δ_) = ϕ₀(eos, δ_, τ)
     return ForwardDiff.derivative(f, δ)
 end
-function ϕ₀_δδ(eos::MultiparameterEOS, δ, τ)
+function ϕ₀_δδ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(δ_) = ϕ₀_δ(eos, δ_, τ)
     return ForwardDiff.derivative(f, δ)
 end
-function ϕ₀_τ(eos::MultiparameterEOS, δ, τ)
+function ϕ₀_τ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(τ_) = ϕ₀(eos, δ, τ_)
     return ForwardDiff.derivative(f, τ)
 end
-function ϕ₀_ττ(eos::MultiparameterEOS, δ, τ)
+function ϕ₀_ττ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(τ_) = ϕ₀_τ(eos, δ, τ_)
     return ForwardDiff.derivative(f, τ)
 end
-function ϕ₀_δτ(eos::MultiparameterEOS, δ, τ)
+function ϕ₀_δτ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     return 0.0
 end
 
-function ϕr_δ(eos::MultiparameterEOS, δ, τ)
+function ϕr_δ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(δ_) = ϕr(eos, δ_, τ)
     return ForwardDiff.derivative(f, δ)
 end
-function ϕr_δδ(eos::MultiparameterEOS, δ, τ)
+function ϕr_δδ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(δ_) = ϕr_δ(eos, δ_, τ)
     return ForwardDiff.derivative(f, δ)
 end
-function ϕr_τ(eos::MultiparameterEOS, δ, τ)
+function ϕr_τ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(τ_) = ϕr(eos, δ, τ_)
     return ForwardDiff.derivative(f, τ)
 end
-function ϕr_ττ(eos::MultiparameterEOS, δ, τ)
+function ϕr_ττ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(τ_) = ϕr_τ(eos, δ, τ_)
     return ForwardDiff.derivative(f, τ)
 end
-function ϕr_δτ(eos::MultiparameterEOS, δ, τ)
+function ϕr_δτ(eos::IAPWSTypeMultiparameterEOS, δ, τ)
     f(τ_) = ϕr_δ(eos, δ, τ_)
     return ForwardDiff.derivative(f, τ)
 end
 
 
 
-function p(eos::MultiparameterEOS, ρ, T)
+function p(eos::IAPWSTypeMultiparameterEOS, ρ, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
     #@printf "δ = %f\n" δ
@@ -152,7 +152,7 @@ function p(eos::MultiparameterEOS, ρ, T)
     return p_nondim * ρ*eos.R*T
 end
 
-function ρ_from_p(eos::MultiparameterEOS, p_, T)
+function ρ_from_p(eos::IAPWSTypeMultiparameterEOS, p_, T)
     function solveit(ρ_guess)
         return abs(p_ - p(eos, ρ_guess, T))
     end
@@ -160,7 +160,7 @@ function ρ_from_p(eos::MultiparameterEOS, p_, T)
     print(a)
 end
 
-function u(eos::MultiparameterEOS, p_, T)
+function u(eos::IAPWSTypeMultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -168,7 +168,7 @@ function u(eos::MultiparameterEOS, p_, T)
     return u_nondim * T*eos.R
 end
 
-function s(eos::MultiparameterEOS, p_, T)
+function s(eos::IAPWSTypeMultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -176,7 +176,7 @@ function s(eos::MultiparameterEOS, p_, T)
     return s_nondim * eos.R
 end
 
-function H(eos::MultiparameterEOS, p_, T)
+function H(eos::IAPWSTypeMultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
@@ -184,7 +184,7 @@ function H(eos::MultiparameterEOS, p_, T)
     return H_nondim * T*eos.R
 end
 
-function Cp(eos::MultiparameterEOS, p_, T)
+function Cp(eos::IAPWSTypeMultiparameterEOS, p_, T)
     ρ = ρ_from_p(eos, p_, T)
     δ = ρ/eos.ρc
     τ = eos.Tc/T
