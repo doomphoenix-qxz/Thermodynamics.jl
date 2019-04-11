@@ -1,11 +1,11 @@
 module Thermodynamics
 
 using ThermodynamicsBase
+using ForwardDiff: derivative
 using Reexport
-using NLSolve
+using NLSolve: nlsolve
 using CSV
 
-include("abstracts.jl")
 include("backends/idealgas.jl")
 include("backends/multiparameterhelmholtz.jl")
 include("backends/pengrobinson.jl")
